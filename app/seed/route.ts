@@ -34,36 +34,22 @@ async function seedInvoices(sql: any) {
 
   await sql`
     CREATE TABLE IF NOT EXISTS invoices (
-      id UUID PRIMARY KEY,
-      customer_id UUID NOT NULL REFERENCES customers(id),
+      id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+      customer_id UUID NOT NULL,
       amount INT NOT NULL,
-      status VARCHAR(255) NOT NULL CHECK (status IN ('pending', 'paid')),
+      status VARCHAR(255) NOT NULL,
       date DATE NOT NULL
     );
   `;
 
   const insertedInvoices = await Promise.all(
-    invoices.map(async (invoice) => {
-      await sql`
-        DELETE FROM invoices
-        WHERE id <> ${invoice.id}
-          AND customer_id = ${invoice.customer_id}
-          AND amount = ${invoice.amount}
-          AND status = ${invoice.status}
-          AND date = ${invoice.date};
-      `;
-
-      return sql`
-        INSERT INTO invoices (id, customer_id, amount, status, date)
-        VALUES (${invoice.id}, ${invoice.customer_id}, ${invoice.amount}, ${invoice.status}, ${invoice.date})
-        ON CONFLICT (id) DO UPDATE
-        SET
-          customer_id = EXCLUDED.customer_id,
-          amount = EXCLUDED.amount,
-          status = EXCLUDED.status,
-          date = EXCLUDED.date;
-      `;
-    }),
+    invoices.map(
+      (invoice) => sql`
+        INSERT INTO invoices (customer_id, amount, status, date)
+        VALUES (${invoice.customer_id}, ${invoice.amount}, ${invoice.status}, ${invoice.date})
+        ON CONFLICT (id) DO NOTHING;
+      `,
+    ),
   );
 
   return insertedInvoices;
